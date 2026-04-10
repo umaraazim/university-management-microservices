@@ -127,7 +127,9 @@ function validateMarks(marks) {
 // ── Cross-service validation helpers ──────────────────────────────────────────
 async function validateStudentExists(studentID) {
   try {
-    const response = await axios.get(`${STUDENT_SERVICE_URL}/students/by-student-id/${studentID}`);
+    const response = await axios.get(`${STUDENT_SERVICE_URL}/students/by-student-id/${studentID}`, {
+      timeout: 5000
+    });
     return { exists: response.data.success, data: response.data.data };
   } catch (error) {
     if (error.response && error.response.status === 404) {
@@ -140,7 +142,9 @@ async function validateStudentExists(studentID) {
 
 async function validateCourseExists(courseID) {
   try {
-    const response = await axios.get(`${COURSE_SERVICE_URL}/courses/by-course-id/${courseID}`);
+    const response = await axios.get(`${COURSE_SERVICE_URL}/courses/by-course-id/${courseID}`, {
+      timeout: 5000
+    });
     return { exists: response.data.success, data: response.data.data };
   } catch (error) {
     if (error.response && error.response.status === 404) {

@@ -9,9 +9,11 @@ const app = express();
 
 // ── CORS Configuration ────────────────────────────────────────────────────────
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || "*",
+  origin: "*",
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: false,
+  maxAge: 86400,
 }));
 
 app.use(express.json());
@@ -38,6 +40,17 @@ const onProxyError = (err, req, res) => {
   });
 };
 
+// ── Proxy request handler ────────────────────────────────────────────────────
+const onProxyReq = (proxyReq, req, _res) => {
+  // express.json() consumes the incoming stream; re-send body for proxied write methods.
+  if (["POST", "PUT", "PATCH"].includes(req.method) && req.body && Object.keys(req.body).length > 0) {
+    const bodyData = JSON.stringify(req.body);
+    proxyReq.setHeader("Content-Type", "application/json");
+    proxyReq.setHeader("Content-Length", Buffer.byteLength(bodyData));
+    proxyReq.write(bodyData);
+  }
+};
+
 // ── Proxy options factory ─────────────────────────────────────────────────────
 const createProxyOptions = (target, pathRewriteKey, pathRewriteValue) => ({
   target,
@@ -46,6 +59,7 @@ const createProxyOptions = (target, pathRewriteKey, pathRewriteValue) => ({
   proxyTimeout: PROXY_TIMEOUT,
   pathRewrite: { [pathRewriteKey]: pathRewriteValue },
   onError: onProxyError,
+  onProxyReq,
 });
 
 // ── Request logger middleware ─────────────────────────────────────────────────
@@ -53,6 +67,9 @@ app.use((req, _res, next) => {
   console.log(`[Gateway] ${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
   next();
 });
+
+// ── Handle OPTIONS preflight requests explicitly ───────────────────────────────
+app.options("*", cors());
 
 // ── Proxy routes ─────────────────────────────────────────────────────────────
 app.use("/api/students",  createProxyMiddleware(createProxyOptions(SERVICES.student, "^/api/students", "/students")));
